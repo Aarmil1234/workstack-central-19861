@@ -1,11 +1,15 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Calendar, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Users, FileText, Calendar, MessageSquare } from "lucide-react";
 
 export default function Dashboard() {
   const { role, user } = useAuth();
+  const navigate = useNavigate();
+
   const [stats, setStats] = useState({
     totalUsers: 0,
     pendingLeaves: 0,
@@ -13,60 +17,75 @@ export default function Dashboard() {
     totalRooms: 0,
   });
 
+  // Helper for navigation on card click
+  const handleNavigate = (path: string) => {
+    navigate(path);
+  };
+
   useEffect(() => {
     const fetchStats = async () => {
-      if (role === "admin" || role === "hr") {
-        // Fetch all users count
-        const { count: usersCount } = await supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true });
+      if (!user) return;
 
-        // Fetch pending leaves
-        const { count: leavesCount } = await supabase
-          .from("leave_requests")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "pending");
+      try {
+        if (role === "admin" || role === "hr") {
+          // ✅ Fetch all employees (from profiles)
+          const { count: usersCount, error: usersError } = await supabase
+            .from("profiles")
+            .select("id", { count: "exact", head: true });
+          if (usersError) throw usersError;
 
-        // Fetch documents count
-        const { count: docsCount } = await supabase
-          .from("documents")
-          .select("*", { count: "exact", head: true });
+          // ✅ Fetch pending leaves
+          const { count: leavesCount, error: leavesError } = await supabase
+            .from("leave_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "pending");
+          if (leavesError) throw leavesError;
 
-        // Fetch chat rooms count
-        const { count: roomsCount } = await supabase
-          .from("chat_rooms")
-          .select("*", { count: "exact", head: true });
+          // ✅ Fetch total documents
+          const { count: docsCount, error: docsError } = await supabase
+            .from("documents")
+            .select("id", { count: "exact", head: true });
+          if (docsError) throw docsError;
 
-        setStats({
-          totalUsers: usersCount || 0,
-          pendingLeaves: leavesCount || 0,
-          totalDocuments: docsCount || 0,
-          totalRooms: roomsCount || 0,
-        });
-      } else {
-        // Employee view - personal stats
-        const { count: docsCount } = await supabase
-          .from("documents")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user?.id);
+          // ✅ Fetch chat rooms
+          const { count: roomsCount, error: roomsError } = await supabase
+            .from("chat_rooms")
+            .select("id", { count: "exact", head: true });
+          if (roomsError) throw roomsError;
 
-        const { count: leavesCount } = await supabase
-          .from("leave_requests")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user?.id)
-          .eq("status", "pending");
+          setStats({
+            totalUsers: usersCount || 0,
+            pendingLeaves: leavesCount || 0,
+            totalDocuments: docsCount || 0,
+            totalRooms: roomsCount || 0,
+          });
+        } else {
+          // ✅ Employee view - personal stats
+          const { count: docsCount } = await supabase
+            .from("documents")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id);
 
-        const { count: roomsCount } = await supabase
-          .from("room_members")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user?.id);
+          const { count: leavesCount } = await supabase
+            .from("leave_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("status", "pending");
 
-        setStats({
-          totalUsers: 0,
-          pendingLeaves: leavesCount || 0,
-          totalDocuments: docsCount || 0,
-          totalRooms: roomsCount || 0,
-        });
+          const { count: roomsCount } = await supabase
+            .from("room_members")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id);
+
+          setStats({
+            totalUsers: 0,
+            pendingLeaves: leavesCount || 0,
+            totalDocuments: docsCount || 0,
+            totalRooms: roomsCount || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
       }
     };
 
@@ -75,16 +94,25 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back! Here's your overview.</p>
+        <p className="text-muted-foreground">
+          Welcome back! Here's your overview.
+        </p>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {(role === "admin" || role === "hr") && (
-          <Card>
+          <Card
+            onClick={() => handleNavigate("/employees")}
+            className="cursor-pointer hover:bg-accent transition-colors"
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Employees
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -93,7 +121,10 @@ export default function Dashboard() {
           </Card>
         )}
 
-        <Card>
+        <Card
+          onClick={() => handleNavigate("/leave-requests")}
+          className="cursor-pointer hover:bg-accent transition-colors"
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               {role === "employee" ? "My Pending Leaves" : "Pending Leaves"}
@@ -105,7 +136,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          onClick={() => handleNavigate("/documents")}
+          className="cursor-pointer hover:bg-accent transition-colors"
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               {role === "employee" ? "My Documents" : "Total Documents"}
@@ -117,7 +151,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          onClick={() => handleNavigate("/chat-room")}
+          className="cursor-pointer hover:bg-accent transition-colors"
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               {role === "employee" ? "My Rooms" : "Chat Rooms"}

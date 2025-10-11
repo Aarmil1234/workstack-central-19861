@@ -103,3 +103,9 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+.cursor-pointer:hover {
+  background-color: hsl(216deg 82.24% 86.7%) !important;
+  transition: background-color 0.2s ease;
+}
+

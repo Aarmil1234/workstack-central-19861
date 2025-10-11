@@ -13,6 +13,8 @@ import ChatRoom from "./pages/ChatRoom";
 import Profile from "./pages/Profile";
 import LeaveRequests from "./pages/LeaveRequests";
 import NotFound from "./pages/NotFound";
+import Employees from "./pages/Employee";
+import DebugRoles from "./pages/DebugRoles";
 
 const queryClient = new QueryClient();
 
@@ -76,7 +78,19 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/employees"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Employees />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            
             <Route path="*" element={<NotFound />} />
+            <Route path="/debug" element={<DebugRoles />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
