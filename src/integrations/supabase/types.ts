@@ -142,6 +142,7 @@ export type Database = {
           created_at: string
           date_of_birth: string | null
           email: string
+          full_name: string | null
           id: string
           phone: string | null
           profile_pic_url: string | null
@@ -151,6 +152,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           email: string
+          full_name?: string | null
           id: string
           phone?: string | null
           profile_pic_url?: string | null
@@ -160,6 +162,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           email?: string
+          full_name?: string | null
           id?: string
           phone?: string | null
           profile_pic_url?: string | null
