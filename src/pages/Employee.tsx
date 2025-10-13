@@ -88,45 +88,30 @@ useEffect(() => {
 
         if (updateError) throw updateError;
 
-        // Update role in user_roles
+        // Get role_id and update role in user_roles
+        const { data: roleData, error: roleFetchError } = await supabase
+          .from("roles")
+          .select("id")
+          .eq("name", formData.role)
+          .single();
+        
+        if (roleFetchError || !roleData) throw roleFetchError || new Error("Role not found");
+
         const { error: roleUpdateError } = await supabase
           .from("user_roles")
-          .update({ role: formData.role })
+          .update({ 
+            role_id: roleData.id,
+            role: formData.role as "admin" | "hr" | "employee"
+          })
           .eq("user_id", selectedEmployee.id);
 
         if (roleUpdateError) throw roleUpdateError;
 
         toast.success("Employee updated successfully!");
       } else {
-        // Insert profile
-        const { data: insertedProfile, error: profileError } = await supabase
-          .from("profiles")
-          .insert([
-            {
-              full_name: formData.full_name,
-              email: formData.email,
-              phone: formData.phone,
-              date_of_birth: formData.date_of_birth,
-              profile_pic_url: formData.profile_pic_url,
-            },
-          ])
-          .select("id")
-          .single();
-
-        if (profileError) throw profileError;
-        const newUserId = insertedProfile.id;
-
-        // Insert role in user_roles
-        const { error: roleError } = await supabase.from("user_roles").insert([
-          {
-            user_id: newUserId,
-            role: formData.role,
-          },
-        ]);
-
-        if (roleError) throw roleError;
-
-        toast.success("Employee added successfully!");
+        // NOTE: Cannot directly create profiles without auth users
+        // Employees should sign up through the Auth page
+        throw new Error("Cannot add employees directly. Employees must sign up through the registration page.");
       }
 
       // Reset

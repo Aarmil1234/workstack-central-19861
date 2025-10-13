@@ -88,11 +88,21 @@ export default function Auth() {
           ]);
           if (profileError) throw profileError;
 
-          // ✅ STEP 2 — Insert into user_roles (with role)
+          // ✅ STEP 2 — Get role_id from roles table
+          const { data: roleData, error: roleFetchError } = await supabase
+            .from("roles")
+            .select("id")
+            .eq("name", role)
+            .single();
+          
+          if (roleFetchError || !roleData) throw roleFetchError || new Error("Role not found");
+
+          // ✅ STEP 3 — Insert into user_roles
           const { error: roleError } = await supabase.from("user_roles").insert([
             {
               user_id: userId,
-              role: role,
+              role_id: roleData.id,
+              role: role as "admin" | "hr" | "employee",
             },
           ]);
           if (roleError) throw roleError;
@@ -228,7 +238,7 @@ export default function Auth() {
               onClick={() => setIsLogin(!isLogin)}
             >
               {isLogin
-                ? "Need an account? Sign up okay"
+                ? "Need an account? Sign up"
                 : "Already have an account? Sign in"}
             </Button>
           </form>
