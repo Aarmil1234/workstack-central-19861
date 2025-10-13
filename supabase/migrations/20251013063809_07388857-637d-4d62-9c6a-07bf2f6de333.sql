@@ -9,10 +9,24 @@ FOR SELECT
 USING (true);
 
 -- INSERT: Only allow system to insert (via trigger on user creation)
-CREATE POLICY "System can insert profiles"
-ON public.profiles
-FOR INSERT
-WITH CHECK (auth.uid() = id);
+create policy "Users can insert their own profile"
+on profiles
+for insert
+to authenticated
+with check (auth.uid() = id);
+
+
+create policy "Admins can manage all profiles"
+on profiles
+for all
+to authenticated
+using (exists (
+  select 1 from user_roles
+  where user_roles.user_id = auth.uid()
+  and user_roles.role = 'admin'
+));
+
+
 
 -- UPDATE: Users can update own profile, admins and HR can update any profile
 CREATE POLICY "Users can update own profile"

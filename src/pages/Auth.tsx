@@ -22,43 +22,28 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ Fetch available roles from user_roles table (just to display options)
- useEffect(() => {
-  const fetchRoles = async () => {
-    try {
-      // ✅ Fetch role names from the "roles" table
+  // ✅ Fetch available roles from "roles" table
+  useEffect(() => {
+    const fetchRoles = async () => {
       const { data, error } = await supabase.from("roles").select("name");
 
       if (error) {
         console.error("Error fetching roles:", error);
-        toast.error("Failed to load roles, using defaults");
-        setRoles(["admin", "hr", "employee"]);
-        setRole("employee");
+        toast.error("Failed to load roles");
         return;
       }
 
-      if (!data || data.length === 0) {
-        console.warn("No roles found — using default fallback");
-        setRoles(["admin", "hr", "employee"]);
-        setRole("employee");
-        return;
+      if (data && data.length > 0) {
+        const uniqueRoles = Array.from(new Set(data.map((r) => r.name)));
+        setRoles(uniqueRoles);
+        setRole(uniqueRoles[0]);
+      } else {
+        toast.error("No roles found. Please add roles in your roles table.");
       }
+    };
 
-      // ✅ Map "name" column instead of "role"
-      const uniqueRoles = Array.from(new Set(data.map((r) => r.name)));
-      setRoles(uniqueRoles);
-      setRole(uniqueRoles[0]);
-    } catch (err) {
-      console.error("Unexpected error fetching roles:", err);
-      setRoles(["admin", "hr", "employee"]);
-      setRole("employee");
-    }
-  };
-
-  fetchRoles();
-}, []);
-
-
+    fetchRoles();
+  }, []);
 
   // ✅ Redirect if logged in
   useEffect(() => {
@@ -74,13 +59,13 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        // Login
+        // 🔑 LOGIN
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Logged in successfully!");
         navigate("/dashboard");
       } else {
-        // Signup
+        // 🆕 SIGNUP
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -89,13 +74,13 @@ export default function Auth() {
 
         const userId = signUpData?.user?.id;
         if (userId) {
-          // ✅ Insert into profiles
-          const { error: profileError } = await (supabase.from as any)("profiles").insert([
+          // ✅ STEP 1 — Insert into profiles (no role)
+          const { error: profileError } = await supabase.from("profiles").insert([
             {
               id: userId,
               email,
-              phone,
               full_name: fullName,
+              phone,
               profile_pic_url: profilePic,
               date_of_birth: dateOfBirth,
               created_at: new Date().toISOString(),
@@ -103,11 +88,11 @@ export default function Auth() {
           ]);
           if (profileError) throw profileError;
 
-          // ✅ Insert into user_roles (assign role)
-          const { error: roleError } = await (supabase.from as any)("user_roles").insert([
+          // ✅ STEP 2 — Insert into user_roles (with role)
+          const { error: roleError } = await supabase.from("user_roles").insert([
             {
               user_id: userId,
-              role: role, // Make sure "role" column exists in your user_roles table
+              role: role,
             },
           ]);
           if (roleError) throw roleError;
@@ -117,8 +102,8 @@ export default function Auth() {
         setIsLogin(true);
       }
     } catch (error: any) {
-      toast.error(error.message || "Something went wrong");
       console.error(error);
+      toast.error(error.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -126,14 +111,14 @@ export default function Auth() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md shadow-lg border border-border/40">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="rounded-full bg-primary p-3">
               <Briefcase className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">WorkStack</CardTitle>
+          <CardTitle className="text-2xl font-semibold text-primary">WorkStack</CardTitle>
           <CardDescription>
             {isLogin ? "Sign in to your account" : "Create a new account"}
           </CardDescription>
@@ -193,15 +178,16 @@ export default function Auth() {
                       {roles.length > 0 ? (
                         roles.map((r) => (
                           <SelectItem key={r} value={r}>
-                            {r}
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
                           </SelectItem>
                         ))
                       ) : (
-                        <div className="p-2 text-sm text-muted-foreground">No roles found</div>
+                        <div className="p-2 text-sm text-muted-foreground">
+                          No roles found
+                        </div>
                       )}
                     </SelectContent>
                   </Select>
-
                 </div>
               </>
             )}
