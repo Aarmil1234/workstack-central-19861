@@ -30,15 +30,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user role
+          // Fetch user role from roles table
           setTimeout(async () => {
             const { data: roleData } = await supabase
               .from("user_roles")
-              .select("role")
+              .select("roles(name)")
               .eq("user_id", session.user.id)
               .single();
             
-            setRole(roleData?.role as AppRole ?? null);
+            setRole(roleData?.roles?.name as AppRole ?? null);
             setLoading(false);
           }, 0);
         } else {
@@ -56,11 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         supabase
           .from("user_roles")
-          .select("role")
+          .select("roles(name)")
           .eq("user_id", session.user.id)
           .single()
           .then(({ data: roleData }) => {
-            setRole(roleData?.role as AppRole ?? null);
+            setRole(roleData?.roles?.name as AppRole ?? null);
             setLoading(false);
           });
       } else {

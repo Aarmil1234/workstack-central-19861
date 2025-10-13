@@ -26,55 +26,38 @@ export default function Auth() {
  useEffect(() => {
   const fetchRoles = async () => {
     try {
-      const { data, error } = await supabase.from("user_roles").select("role");
+      // ✅ Fetch role names from the "roles" table
+      const { data, error } = await supabase.from("roles").select("name");
 
       if (error) {
-        console.error("Error fetching user_roles:", error);
-        toast.error("Failed to load roles");
+        console.error("Error fetching roles:", error);
+        toast.error("Failed to load roles, using defaults");
+        setRoles(["admin", "hr", "employee"]);
+        setRole("employee");
         return;
       }
 
       if (!data || data.length === 0) {
-        console.warn("No roles found — inserting defaults...");
-
-        // Create default roles
-        const defaultRoles = [
-          { role: "admin" },
-          { role: "hr" },
-          { role: "employee" },
-        ];
-
-        const { error: insertError } = await supabase
-          .from("user_roles")
-          .insert(defaultRoles);
-
-        if (insertError) {
-          console.error("Error inserting default roles:", insertError);
-          toast.error("Failed to insert default roles");
-          return;
-        }
-
-        // Fetch again after insert
-        const { data: newRoles } = await supabase
-          .from("user_roles")
-          .select("role");
-
-        setRoles(newRoles?.map((r) => r.role) || []);
-        setRole(newRoles?.[0]?.role || "");
+        console.warn("No roles found — using default fallback");
+        setRoles(["admin", "hr", "employee"]);
+        setRole("employee");
         return;
       }
 
-      // If roles exist
-      const uniqueRoles = Array.from(new Set(data.map((r) => r.role)));
+      // ✅ Map "name" column instead of "role"
+      const uniqueRoles = Array.from(new Set(data.map((r) => r.name)));
       setRoles(uniqueRoles);
       setRole(uniqueRoles[0]);
     } catch (err) {
       console.error("Unexpected error fetching roles:", err);
+      setRoles(["admin", "hr", "employee"]);
+      setRole("employee");
     }
   };
 
   fetchRoles();
 }, []);
+
 
 
   // ✅ Redirect if logged in
