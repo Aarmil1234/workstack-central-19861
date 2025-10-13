@@ -101,3 +101,17 @@ USING (user_id = auth.uid());
 ------------------------------------------------------------
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
+
+
+-- Remove the old insert policy
+DROP POLICY IF EXISTS "System can insert profiles" ON public.profiles;
+
+-- Allow admins and HR to insert new profiles
+CREATE POLICY "Admins and HR can insert profiles"
+ON public.profiles
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  has_role(auth.uid(), 'admin'::app_role)
+  OR has_role(auth.uid(), 'hr'::app_role)
+);
