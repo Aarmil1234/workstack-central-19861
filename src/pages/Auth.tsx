@@ -228,7 +228,7 @@ export default function Auth() {
               onClick={() => setIsLogin(!isLogin)}
             >
               {isLogin
-                ? "Need an account? Sign up"
+                ? "Need an account? Sign up okay"
                 : "Already have an account? Sign in"}
             </Button>
           </form>
