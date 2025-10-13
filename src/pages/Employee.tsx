@@ -1,14 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Button,
-} from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,8 +9,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, UserCircle, Loader2, Edit } from "lucide-react";
 
@@ -27,6 +20,7 @@ export default function EmployeeManagement() {
   const [openAddModal, setOpenAddModal] = useState(false);
   const [openViewModal, setOpenViewModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -37,7 +31,7 @@ export default function EmployeeManagement() {
     role: "employee",
   });
 
-  // Fetch employees
+  // 🔹 Fetch employees
   useEffect(() => {
     const fetchEmployees = async () => {
       setLoading(true);
@@ -55,24 +49,87 @@ export default function EmployeeManagement() {
     fetchEmployees();
   }, []);
 
-  // Add or update employee
+  // 🔹 Fetch roles from user_roles table
+  // 🔹 Fetch roles from the "roles" table
+useEffect(() => {
+  const fetchRoles = async () => {
+    const { data, error } = await supabase
+      .from("roles")
+      .select("name") // assuming your column is "name"
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching roles:", error);
+      toast.error("Failed to load roles");
+    } else {
+      setRoles(data.map((r: any) => r.name));
+    }
+  };
+
+  fetchRoles();
+}, []);
+
+
+  // 🔹 Add or update employee
   const handleSaveEmployee = async () => {
     try {
       if (selectedEmployee) {
-        // Update
-        const { error } = await supabase
+        // Update profile
+        const { error: updateError } = await supabase
           .from("profiles")
-          .update(formData)
+          .update({
+            full_name: formData.full_name,
+            email: formData.email,
+            phone: formData.phone,
+            date_of_birth: formData.date_of_birth,
+            profile_pic_url: formData.profile_pic_url,
+          })
           .eq("id", selectedEmployee.id);
-        if (error) throw error;
+
+        if (updateError) throw updateError;
+
+        // Update role in user_roles
+        const { error: roleUpdateError } = await supabase
+          .from("user_roles")
+          .update({ role: formData.role })
+          .eq("user_id", selectedEmployee.id);
+
+        if (roleUpdateError) throw roleUpdateError;
+
         toast.success("Employee updated successfully!");
       } else {
-        // Add new
-        const { error } = await supabase.from("profiles").insert([formData]);
-        if (error) throw error;
+        // Insert profile
+        const { data: insertedProfile, error: profileError } = await supabase
+          .from("profiles")
+          .insert([
+            {
+              full_name: formData.full_name,
+              email: formData.email,
+              phone: formData.phone,
+              date_of_birth: formData.date_of_birth,
+              profile_pic_url: formData.profile_pic_url,
+            },
+          ])
+          .select("id")
+          .single();
+
+        if (profileError) throw profileError;
+        const newUserId = insertedProfile.id;
+
+        // Insert role in user_roles
+        const { error: roleError } = await supabase.from("user_roles").insert([
+          {
+            user_id: newUserId,
+            role: formData.role,
+          },
+        ]);
+
+        if (roleError) throw roleError;
+
         toast.success("Employee added successfully!");
       }
 
+      // Reset
       setFormData({
         full_name: "",
         email: "",
@@ -87,11 +144,11 @@ export default function EmployeeManagement() {
       window.location.reload();
     } catch (err: any) {
       console.error(err);
-      toast.error("Failed to save employee");
+      toast.error(err.message || "Failed to save employee");
     }
   };
 
-  // Handle card click
+  // 🔹 Handle card click (open edit modal)
   const handleCardClick = (employee: any) => {
     setSelectedEmployee(employee);
     setFormData({
@@ -166,7 +223,12 @@ export default function EmployeeManagement() {
           <DialogHeader>
             <DialogTitle>Add New Employee</DialogTitle>
           </DialogHeader>
-          <EmployeeForm formData={formData} setFormData={setFormData} onSave={handleSaveEmployee} />
+          <EmployeeForm
+            formData={formData}
+            setFormData={setFormData}
+            onSave={handleSaveEmployee}
+            roles={roles}
+          />
         </DialogContent>
       </Dialog>
 
@@ -176,22 +238,29 @@ export default function EmployeeManagement() {
           <DialogHeader>
             <DialogTitle>Edit Employee Details</DialogTitle>
           </DialogHeader>
-          <EmployeeForm formData={formData} setFormData={setFormData} onSave={handleSaveEmployee} />
+          <EmployeeForm
+            formData={formData}
+            setFormData={setFormData}
+            onSave={handleSaveEmployee}
+            roles={roles}
+          />
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-// ✅ Reusable Employee Form
+// ✅ Employee Form Component
 function EmployeeForm({
   formData,
   setFormData,
   onSave,
+  roles,
 }: {
   formData: any;
   setFormData: any;
   onSave: any;
+  roles: string[];
 }) {
   return (
     <div className="space-y-4 mt-4">
@@ -232,6 +301,25 @@ function EmployeeForm({
           onChange={(e) => setFormData({ ...formData, profile_pic_url: e.target.value })}
         />
       </div>
+      <div>
+        <Label>Role</Label>
+        <Select
+          value={formData.role}
+          onValueChange={(value) => setFormData({ ...formData, role: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent>
+            {roles.map((r) => (
+              <SelectItem key={r} value={r}>
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Button onClick={onSave} className="w-full mt-2 flex items-center justify-center gap-2">
         <Edit className="h-4 w-4" />
         Save Changes

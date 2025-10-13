@@ -16,15 +16,24 @@ to authenticated
 with check (auth.uid() = id);
 
 
-create policy "Admins can manage all profiles"
-on profiles
-for all
-to authenticated
-using (exists (
-  select 1 from user_roles
-  where user_roles.user_id = auth.uid()
-  and user_roles.role = 'admin'
-));
+CREATE POLICY "Admins can manage all profiles"
+ON profiles
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM user_roles
+    WHERE user_roles.user_id = auth.uid()
+    AND user_roles.role = 'admin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_roles
+    WHERE user_roles.user_id = auth.uid()
+    AND user_roles.role = 'admin'
+  )
+);
+
 
 
 
