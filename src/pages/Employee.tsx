@@ -132,7 +132,12 @@ useEffect(() => {
         });
 
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Failed to create user');
+        console.log('Create user response:', { status: response.status, result });
+        
+        if (!response.ok) {
+          const errorMsg = result.error || JSON.stringify(result) || 'Failed to create user';
+          throw new Error(errorMsg);
+        }
 
         toast.success("Employee added successfully!");
       }
@@ -152,8 +157,9 @@ useEffect(() => {
       setOpenViewModal(false);
       window.location.reload();
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to save employee");
+      console.error('Error saving employee:', err);
+      const errorMessage = err?.message || err?.toString() || "Unknown error occurred";
+      toast.error(errorMessage);
     }
   };
 
