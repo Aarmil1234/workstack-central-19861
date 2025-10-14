@@ -29,6 +29,7 @@ export default function EmployeeManagement() {
     date_of_birth: "",
     profile_pic_url: "",
     role: "employee",
+    password: "",
   });
 
   // 🔹 Fetch employees
@@ -109,9 +110,31 @@ useEffect(() => {
 
         toast.success("Employee updated successfully!");
       } else {
-        // NOTE: Cannot directly create profiles without auth users
-        // Employees should sign up through the Auth page
-        throw new Error("Cannot add employees directly. Employees must sign up through the registration page.");
+        // Create new user via edge function
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
+
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            full_name: formData.full_name,
+            phone: formData.phone,
+            date_of_birth: formData.date_of_birth,
+            profile_pic_url: formData.profile_pic_url,
+            role: formData.role,
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to create user');
+
+        toast.success("Employee added successfully!");
       }
 
       // Reset
@@ -122,6 +145,7 @@ useEffect(() => {
         date_of_birth: "",
         profile_pic_url: "",
         role: "employee",
+        password: "",
       });
       setSelectedEmployee(null);
       setOpenAddModal(false);
@@ -143,6 +167,7 @@ useEffect(() => {
       date_of_birth: employee.date_of_birth,
       profile_pic_url: employee.profile_pic_url,
       role: "employee",
+      password: "",
     });
     setOpenViewModal(true);
   };
@@ -208,12 +233,13 @@ useEffect(() => {
           <DialogHeader>
             <DialogTitle>Add New Employee</DialogTitle>
           </DialogHeader>
-          <EmployeeForm
-            formData={formData}
-            setFormData={setFormData}
-            onSave={handleSaveEmployee}
-            roles={roles}
-          />
+            <EmployeeForm
+              formData={formData}
+              setFormData={setFormData}
+              onSave={handleSaveEmployee}
+              roles={roles}
+              isNewEmployee={true}
+            />
         </DialogContent>
       </Dialog>
 
@@ -223,12 +249,13 @@ useEffect(() => {
           <DialogHeader>
             <DialogTitle>Edit Employee Details</DialogTitle>
           </DialogHeader>
-          <EmployeeForm
-            formData={formData}
-            setFormData={setFormData}
-            onSave={handleSaveEmployee}
-            roles={roles}
-          />
+            <EmployeeForm
+              formData={formData}
+              setFormData={setFormData}
+              onSave={handleSaveEmployee}
+              roles={roles}
+              isNewEmployee={false}
+            />
         </DialogContent>
       </Dialog>
     </div>
@@ -241,11 +268,13 @@ function EmployeeForm({
   setFormData,
   onSave,
   roles,
+  isNewEmployee,
 }: {
   formData: any;
   setFormData: any;
   onSave: any;
   roles: string[];
+  isNewEmployee: boolean;
 }) {
   return (
     <div className="space-y-4 mt-4">
@@ -286,6 +315,19 @@ function EmployeeForm({
           onChange={(e) => setFormData({ ...formData, profile_pic_url: e.target.value })}
         />
       </div>
+      
+      {isNewEmployee && (
+        <div>
+          <Label>Password</Label>
+          <Input
+            type="password"
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            required
+          />
+        </div>
+      )}
+
       <div>
         <Label>Role</Label>
         <Select
