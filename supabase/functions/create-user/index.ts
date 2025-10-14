@@ -46,30 +46,22 @@ Deno.serve(async (req) => {
 
     const { email, password, full_name, phone, date_of_birth, profile_pic_url, role } = await req.json()
 
-    // Create auth user
+    // Create auth user with all profile data in user_metadata
+    // The trigger will automatically create the profile from this metadata
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name }
-    })
-
-    if (createError) throw createError
-    if (!newUser.user) throw new Error('User creation failed')
-
-    // Create profile
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        id: newUser.user.id,
-        email,
+      user_metadata: { 
         full_name,
         phone,
         date_of_birth,
         profile_pic_url
-      })
+      }
+    })
 
-    if (profileError) throw profileError
+    if (createError) throw createError
+    if (!newUser.user) throw new Error('User creation failed')
 
     // Get role_id
     const { data: roleInfo, error: roleError } = await supabaseAdmin
