@@ -33,6 +33,7 @@ interface LeaveRequest {
   reason: string | null;
   status: string;
   created_at: string;
+  extra_info?: string | null; // for storing time or half info
 }
 
 export default function LeaveRequests() {
@@ -40,6 +41,8 @@ export default function LeaveRequests() {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [leaveType, setLeaveType] = useState("");
+  const [extraInfo, setExtraInfo] = useState("");
 
   const canApprove = role === "admin" || role === "hr";
 
@@ -51,13 +54,11 @@ export default function LeaveRequests() {
     setLoading(true);
     try {
       let query = supabase.from("leave_requests").select("*").order("created_at", { ascending: false });
-
       if (role === "employee") {
         query = query.eq("user_id", user?.id);
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
       setRequests(data || []);
     } catch (error: any) {
@@ -78,6 +79,7 @@ export default function LeaveRequests() {
         start_date: formData.get("startDate") as string,
         end_date: formData.get("endDate") as string,
         reason: formData.get("reason") as string,
+        extra_info: extraInfo || null,
         status: "pending",
       });
 
@@ -85,6 +87,8 @@ export default function LeaveRequests() {
 
       toast.success("Leave request submitted");
       setDialogOpen(false);
+      setLeaveType("");
+      setExtraInfo("");
       fetchRequests();
     } catch (error: any) {
       toast.error("Failed to submit leave request");
@@ -99,7 +103,6 @@ export default function LeaveRequests() {
         .eq("id", id);
 
       if (error) throw error;
-
       toast.success(`Leave request ${status}`);
       fetchRequests();
     } catch (error: any) {
@@ -138,9 +141,17 @@ export default function LeaveRequests() {
               <DialogTitle>Submit Leave Request</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Leave Type */}
               <div className="space-y-2">
                 <Label htmlFor="leaveType">Leave Type</Label>
-                <Select name="leaveType" required>
+                <Select
+                  name="leaveType"
+                  onValueChange={(value) => {
+                    setLeaveType(value);
+                    setExtraInfo("");
+                  }}
+                  required
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select leave type" />
                   </SelectTrigger>
@@ -153,24 +164,69 @@ export default function LeaveRequests() {
                 </Select>
               </div>
 
+              {/* Start Date */}
               <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
+                <Label htmlFor="startDate">Date</Label>
                 <Input id="startDate" name="startDate" type="date" required />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input id="endDate" name="endDate" type="date" required />
-              </div>
+              {/* End Date (only for full day) */}
+              {leaveType === "full-day" && (
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input id="endDate" name="endDate" type="date" required />
+                </div>
+              )}
 
+              {/* Dynamic extra fields */}
+              {leaveType === "early-out" && (
+                <div className="space-y-2">
+                  <Label htmlFor="earlyTime">Time of Early Out</Label>
+                  <Input
+                    id="earlyTime"
+                    name="earlyTime"
+                    type="time"
+                    required
+                    onChange={(e) => setExtraInfo(`Early out at ${e.target.value}`)}
+                  />
+                </div>
+              )}
+
+              {leaveType === "late-arrival" && (
+                <div className="space-y-2">
+                  <Label htmlFor="lateTime">Expected Arrival Time</Label>
+                  <Input
+                    id="lateTime"
+                    name="lateTime"
+                    type="time"
+                    required
+                    onChange={(e) => setExtraInfo(`Arriving at ${e.target.value}`)}
+                  />
+                </div>
+              )}
+
+              {leaveType === "half-day" && (
+                <div className="space-y-2">
+                  <Label>Which Half?</Label>
+                  <Select
+                    onValueChange={(value) => setExtraInfo(`Half Day (${value} half)`)}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select half" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="first">First Half</SelectItem>
+                      <SelectItem value="second">Second Half</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Reason */}
               <div className="space-y-2">
                 <Label htmlFor="reason">Reason</Label>
-                <Textarea
-                  id="reason"
-                  name="reason"
-                  placeholder="Enter reason for leave"
-                  rows={3}
-                />
+                <Textarea id="reason" name="reason" placeholder="Enter reason for leave" rows={3} />
               </div>
 
               <Button type="submit" className="w-full">
@@ -181,6 +237,7 @@ export default function LeaveRequests() {
         </Dialog>
       </div>
 
+      {/* Request list */}
       {loading ? (
         <div className="text-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
@@ -207,10 +264,17 @@ export default function LeaveRequests() {
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <p>
-                    <span className="font-medium">Duration:</span>{" "}
-                    {new Date(request.start_date).toLocaleDateString()} -{" "}
-                    {new Date(request.end_date).toLocaleDateString()}
+                    <span className="font-medium">Date:</span>{" "}
+                    {new Date(request.start_date).toLocaleDateString()}
+                    {request.end_date && ` - ${new Date(request.end_date).toLocaleDateString()}`}
                   </p>
+
+                  {request.extra_info && (
+                    <p>
+                      <span className="font-medium">Details:</span> {request.extra_info}
+                    </p>
+                  )}
+
                   {request.reason && (
                     <p>
                       <span className="font-medium">Reason:</span> {request.reason}

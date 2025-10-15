@@ -14,29 +14,56 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Document {
   id: string;
+  user_id: string;
   file_name: string;
   file_type: string;
   file_url: string;
   created_at: string;
-  user_id: string;
+  uploaded_by: string;
+  employee_name?: string;
+}
+
+interface Profile {
+  id: string;
+  full_name: string;
 }
 
 export default function Documents() {
   const { role, user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string>("");
 
   const canUpload = role === "admin";
 
   useEffect(() => {
     fetchDocuments();
+    if (canUpload) fetchProfiles();
   }, [role, user]);
 
+  // 🔹 Fetch all employee profiles (for dropdown)
+  const fetchProfiles = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .order("full_name", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching profiles:", error);
+      toast.error("Failed to fetch employees");
+    } else {
+      setProfiles(data || []);
+    }
+  };
+
+  // 🔹 Fetch documents with employee names
   const fetchDocuments = async () => {
     setLoading(true);
     try {
@@ -47,23 +74,36 @@ export default function Documents() {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
-      setDocuments(data || []);
+
+      // Fetch employee names from profiles
+      const { data: profileData } = await supabase.from("profiles").select("id, full_name");
+
+      const documentsWithNames = (data || []).map((doc: Document) => {
+        const employee = profileData?.find((p) => p.id === doc.user_id);
+        return {
+          ...doc,
+          employee_name: employee?.full_name || "Unknown Employee",
+        };
+      });
+
+      setDocuments(documentsWithNames);
     } catch (error: any) {
+      console.error("Fetch error:", error);
       toast.error("Failed to fetch documents");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🔹 Handle file upload
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setUploading(true);
 
     const formData = new FormData(e.currentTarget);
     const file = formData.get("file") as File;
-    const userId = formData.get("userId") as string;
+    const userId = selectedUser;
 
     if (!file || !userId) {
       toast.error("Please select a file and employee");
@@ -72,35 +112,53 @@ export default function Documents() {
     }
 
     try {
-      // For demo purposes, we'll store file info in the database
-      // In production, you'd upload to storage bucket first
-      const { error } = await supabase.from("documents").insert({
+      const filePath = `${userId}/${Date.now()}_${file.name}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Insert metadata into DB
+      const { error: insertError } = await supabase.from("documents").insert({
         user_id: userId,
         file_name: file.name,
         file_type: file.type,
-        file_url: "#", // Would be actual storage URL
+        file_url: filePath,
         uploaded_by: user?.id,
       });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       toast.success("Document uploaded successfully");
       setDialogOpen(false);
       fetchDocuments();
     } catch (error: any) {
+      console.error("Upload error:", error);
       toast.error("Failed to upload document");
     } finally {
       setUploading(false);
     }
   };
 
+  // 🔹 Group documents by date
+  const groupedDocs = documents.reduce((acc: Record<string, Document[]>, doc) => {
+    const dateKey = new Date(doc.created_at).toLocaleDateString();
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(doc);
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Documents</h1>
           <p className="text-muted-foreground">
-            {role === "employee" ? "Your salary slips and documents" : "Manage employee documents"}
+            {role === "employee" ? "Your salary slips and files" : "Manage employee documents"}
           </p>
         </div>
 
@@ -118,8 +176,19 @@ export default function Documents() {
               </DialogHeader>
               <form onSubmit={handleUpload} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="userId">Employee ID</Label>
-                  <Input id="userId" name="userId" placeholder="Enter employee user ID" required />
+                  <Label htmlFor="user">Select Employee</Label>
+                  <Select value={selectedUser} onValueChange={setSelectedUser}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {emp.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="file">File</Label>
@@ -134,12 +203,13 @@ export default function Documents() {
         )}
       </div>
 
+      {/* FILE EXPLORER STYLE DISPLAY */}
       {loading ? (
         <div className="text-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading documents...</p>
         </div>
-      ) : documents.length === 0 ? (
+      ) : Object.keys(groupedDocs).length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -147,28 +217,44 @@ export default function Documents() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {documents.map((doc) => (
-            <Card key={doc.id}>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  {doc.file_name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">Type: {doc.file_type}</p>
-                  <p className="text-muted-foreground">
-                    Date: {new Date(doc.created_at).toLocaleDateString()}
-                  </p>
-                  <Button variant="outline" size="sm" className="w-full mt-2">
-                    <Download className="mr-2 h-3 w-3" />
-                    Download
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="space-y-8">
+          {Object.entries(groupedDocs).map(([date, docs]) => (
+            <div key={date}>
+              <h2 className="text-lg font-semibold mb-4 border-b pb-2">{date}</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {docs.map((doc) => {
+                  const { data: publicUrlData } = supabase.storage
+                    .from("documents")
+                    .getPublicUrl(doc.file_url);
+                  const publicUrl = publicUrlData.publicUrl;
+
+                  return (
+                    <Card key={doc.id} className="hover:shadow-md transition">
+                      <CardHeader>
+                        <CardTitle className="text-base flex flex-col">
+                          <span className="font-semibold text-gray-800">{doc.employee_name}</span>
+                          <span className="text-sm text-gray-500">{doc.file_name}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <p>Type: {doc.file_type}</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => window.open(publicUrl, "_blank")}
+                          >
+                            <Download className="mr-2 h-3 w-3" />
+                            Download
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
       )}

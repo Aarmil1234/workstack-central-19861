@@ -19,6 +19,7 @@ import { Briefcase } from "lucide-react";
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Documents", url: "/documents", icon: FileText },
+  { title: "Employee", url: "/employees", icon: User },
   { title: "Chat Room", url: "/chat-room", icon: MessageSquare },
   { title: "Leave Requests", url: "/leave-requests", icon: Calendar },
   { title: "Profile", url: "/profile", icon: User },
