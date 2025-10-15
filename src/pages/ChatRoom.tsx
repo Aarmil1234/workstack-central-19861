@@ -97,36 +97,51 @@ export default function ChatRoom() {
   };
 
   const handleCreateRoom = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  e.preventDefault();
+  const formData = new FormData(e.currentTarget);
+  const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    try {
-      const { data: roomData, error: roomError } = await supabase
-        .from("chat_rooms")
-        .insert({
-          name: formData.get("roomName") as string,
-          room_code: roomCode,
-          created_by: user?.id,
-        })
-        .select()
-        .single();
+  try {
+    // ✅ Ensure user is loaded from Supabase (not just context)
+    const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+    if (userError || !authUser) throw new Error("User not authenticated");
 
-      if (roomError) throw roomError;
+    // ✅ Insert new chat room with correct creator
+    const { data: roomData, error: roomError } = await supabase
+      .from("chat_rooms")
+      .insert({
+        name: formData.get("roomName") as string,
+        room_code: roomCode,
+        created_by: authUser.id, // ✅ always use real Supabase auth ID
+      })
+      
+      .select()
+      .single();
+console.log({
+  name: formData.get("roomName"),
+  room_code: roomCode,
+  created_by: authUser?.id
+})
 
-      // Auto-join creator
-      await supabase.from("room_members").insert({
-        room_id: roomData.id,
-        user_id: user?.id,
-      });
+    if (roomError) throw roomError;
 
-      toast.success(`Room created with code: ${roomCode}`);
-      setCreateDialogOpen(false);
-      fetchRooms();
-    } catch (error: any) {
-      toast.error("Failed to create room");
-    }
-  };
+    // ✅ Auto-join the creator in room_members
+    const { error: memberError } = await supabase.from("room_members").insert({
+      room_id: roomData.id,
+      user_id: authUser.id,
+    });
+
+    if (memberError) throw memberError;
+
+    toast.success(`Room created successfully! Code: ${roomCode}`);
+    setCreateDialogOpen(false);
+    fetchRooms();
+  } catch (error: any) {
+    console.error("Room creation failed:", error);
+    toast.error(error.message || "Failed to create room");
+  }
+};
+
 
   const handleJoinRoom = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
