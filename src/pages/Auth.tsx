@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Briefcase } from "lucide-react";
+import logo from "../components/assets/workstack-logo.png"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Auth() {
@@ -124,9 +125,7 @@ export default function Auth() {
       <Card className="w-full max-w-md shadow-lg border border-border/40">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-primary p-3">
-              <Briefcase className="h-8 w-8 text-primary-foreground" />
-            </div>
+              <img src={logo} className="text-primary-foreground" style={{width : "70px"}} />
           </div>
           <CardTitle className="text-2xl font-semibold text-primary">WorkStack</CardTitle>
           <CardDescription>
