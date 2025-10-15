@@ -99,41 +99,47 @@ export default function ChatRoom() {
   const handleCreateRoom = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   const formData = new FormData(e.currentTarget);
+  const roomName = formData.get("roomName") as string;
   const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
   try {
-    // ✅ Ensure user is loaded from Supabase (not just context)
-    const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
-    if (userError || !authUser) throw new Error("User not authenticated");
+    // 🔒 Always ensure current user session is active before any insert
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    // ✅ Insert new chat room with correct creator
+    if (sessionError || !session) {
+      toast.error("Session expired. Please log in again.");
+      console.error("No active Supabase session found:", sessionError);
+      return;
+    }
+
+    const userId = session.user.id;
+    console.log("Creating room as user:", userId);
+
+    // 🧱 Insert room with matching created_by (required by RLS)
     const { data: roomData, error: roomError } = await supabase
       .from("chat_rooms")
       .insert({
-        name: formData.get("roomName") as string,
+        name: roomName,
         room_code: roomCode,
-        created_by: authUser.id, // ✅ always use real Supabase auth ID
+        created_by: userId, // must match auth.uid()
       })
-      
       .select()
       .single();
-console.log({
-  name: formData.get("roomName"),
-  room_code: roomCode,
-  created_by: authUser?.id
-})
 
     if (roomError) throw roomError;
 
-    // ✅ Auto-join the creator in room_members
+    // ✅ Auto-join creator
     const { error: memberError } = await supabase.from("room_members").insert({
       room_id: roomData.id,
-      user_id: authUser.id,
+      user_id: userId,
     });
 
     if (memberError) throw memberError;
 
-    toast.success(`Room created successfully! Code: ${roomCode}`);
+    toast.success(`Room created with code: ${roomCode}`);
     setCreateDialogOpen(false);
     fetchRooms();
   } catch (error: any) {
@@ -141,6 +147,7 @@ console.log({
     toast.error(error.message || "Failed to create room");
   }
 };
+
 
 
   const handleJoinRoom = async (e: React.FormEvent<HTMLFormElement>) => {
