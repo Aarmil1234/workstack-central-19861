@@ -150,7 +150,10 @@ export default function ChatRoom() {
         user_id: user?.id,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.log(error);
+        throw error;
+      }
 
       toast.success("Joined room successfully");
       setJoinDialogOpen(false);

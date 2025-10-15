@@ -315,12 +315,42 @@ function EmployeeForm({
         />
       </div>
       <div>
-        <Label>Profile Picture URL</Label>
-        <Input
-          value={formData.profile_pic_url}
-          onChange={(e) => setFormData({ ...formData, profile_pic_url: e.target.value })}
-        />
-      </div>
+  <Label>Profile Picture</Label>
+  <Input
+    type="file"
+    accept="image/*"
+    onChange={async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const fileName = `${Date.now()}-${file.name}`;
+
+      const { data, error } = await supabase.storage
+        .from("profile_pictures")
+        .upload(fileName, file);
+
+      if (error) {
+        console.error("Error uploading:", error);
+        toast.error("Upload failed!");
+      } else {
+        const { data: publicUrlData } = supabase.storage
+          .from("profile_pictures")
+          .getPublicUrl(fileName);
+
+        setFormData({ ...formData, profile_pic_url: publicUrlData.publicUrl });
+        toast.success("Profile picture uploaded!");
+      }
+    }}
+  />
+  {formData.profile_pic_url && (
+    <img
+      src={formData.profile_pic_url}
+      alt="Profile"
+      className="mt-3 w-20 h-20 rounded-full object-cover border"
+    />
+  )}
+</div>
+
       
       {isNewEmployee && (
         <div>

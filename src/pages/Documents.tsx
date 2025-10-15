@@ -14,7 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Document {
   id: string;
@@ -48,7 +54,7 @@ export default function Documents() {
     if (canUpload) fetchProfiles();
   }, [role, user]);
 
-  // 🔹 Fetch all employee profiles (for dropdown)
+  // 🔹 Fetch all employee profiles
   const fetchProfiles = async () => {
     const { data, error } = await supabase
       .from("profiles")
@@ -63,11 +69,14 @@ export default function Documents() {
     }
   };
 
-  // 🔹 Fetch documents with employee names
+  // 🔹 Fetch documents and attach employee names
   const fetchDocuments = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("documents").select("*").order("created_at", { ascending: false });
+      let query = supabase
+        .from("documents")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (role === "employee") {
         query = query.eq("user_id", user?.id);
@@ -76,8 +85,9 @@ export default function Documents() {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Fetch employee names from profiles
-      const { data: profileData } = await supabase.from("profiles").select("id, full_name");
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("id, full_name");
 
       const documentsWithNames = (data || []).map((doc: Document) => {
         const employee = profileData?.find((p) => p.id === doc.user_id);
@@ -96,7 +106,7 @@ export default function Documents() {
     }
   };
 
-  // 🔹 Handle file upload
+  // 🔹 Handle upload
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setUploading(true);
@@ -114,14 +124,12 @@ export default function Documents() {
     try {
       const filePath = `${userId}/${Date.now()}_${file.name}`;
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Insert metadata into DB
       const { error: insertError } = await supabase.from("documents").insert({
         user_id: userId,
         file_name: file.name,
@@ -143,7 +151,7 @@ export default function Documents() {
     }
   };
 
-  // 🔹 Group documents by date
+  // 🔹 Group by date
   const groupedDocs = documents.reduce((acc: Record<string, Document[]>, doc) => {
     const dateKey = new Date(doc.created_at).toLocaleDateString();
     if (!acc[dateKey]) acc[dateKey] = [];
@@ -153,12 +161,14 @@ export default function Documents() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Documents</h1>
           <p className="text-muted-foreground">
-            {role === "employee" ? "Your salary slips and files" : "Manage employee documents"}
+            {role === "employee"
+              ? "Your salary slips and files"
+              : "Manage employee documents"}
           </p>
         </div>
 
@@ -203,7 +213,7 @@ export default function Documents() {
         )}
       </div>
 
-      {/* FILE EXPLORER STYLE DISPLAY */}
+      {/* Explorer view */}
       {loading ? (
         <div className="text-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
@@ -220,20 +230,26 @@ export default function Documents() {
         <div className="space-y-8">
           {Object.entries(groupedDocs).map(([date, docs]) => (
             <div key={date}>
-              <h2 className="text-lg font-semibold mb-4 border-b pb-2">{date}</h2>
+              <h2 className="text-lg font-semibold mb-4 border-b pb-2">
+                {date}
+              </h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {docs.map((doc) => {
                   const { data: publicUrlData } = supabase.storage
                     .from("documents")
                     .getPublicUrl(doc.file_url);
-                  const publicUrl = publicUrlData.publicUrl;
+                  const publicUrl = publicUrlData?.publicUrl;
 
                   return (
                     <Card key={doc.id} className="hover:shadow-md transition">
                       <CardHeader>
                         <CardTitle className="text-base flex flex-col">
-                          <span className="font-semibold text-gray-800">{doc.employee_name}</span>
-                          <span className="text-sm text-gray-500">{doc.file_name}</span>
+                          <span className="font-semibold text-gray-800">
+                            {doc.employee_name}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {doc.file_name}
+                          </span>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>

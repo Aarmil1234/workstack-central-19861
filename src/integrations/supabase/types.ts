@@ -113,6 +113,7 @@ export type Database = {
           id: string
           is_read: boolean
           message: string
+          room_code: string | null
           title: string
           type: string
           user_id: string
@@ -122,6 +123,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message: string
+          room_code?: string | null
           title: string
           type: string
           user_id: string
@@ -131,6 +133,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string
+          room_code?: string | null
           title?: string
           type?: string
           user_id?: string
