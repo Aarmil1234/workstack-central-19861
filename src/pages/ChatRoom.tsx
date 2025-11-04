@@ -33,6 +33,9 @@ interface WorkLog {
   log_time: string | null;
   tasks: string;
   created_at: string;
+  profiles?: {
+    full_name: string | null;
+  };
 }
 
 export default function ChatRoom() {
@@ -86,11 +89,11 @@ export default function ChatRoom() {
     try {
       const { data } = await supabase
         .from("work_logs")
-        .select("*")
+        .select("*, profiles(full_name)")
         .eq("room_id", roomId)
         .order("log_date", { ascending: false });
 
-      setWorkLogs(data || []);
+      setWorkLogs((data as any) || []);
     } catch (error: any) {
       toast.error("Failed to fetch work logs");
     }
@@ -354,12 +357,19 @@ export default function ChatRoom() {
                   <div className="space-y-4">
                     {workLogs.map((log) => (
                       <div key={log.id} className="border-l-2 border-primary pl-4 py-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline">
-                            {new Date(log.log_date).toLocaleDateString()}
-                          </Badge>
-                          {log.log_time && (
-                            <span className="text-xs text-muted-foreground">{log.log_time}</span>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {new Date(log.log_date).toLocaleDateString()}
+                            </Badge>
+                            {log.log_time && (
+                              <span className="text-xs text-muted-foreground">{log.log_time}</span>
+                            )}
+                          </div>
+                          {log.profiles?.full_name && (
+                            <span className="text-xs font-medium text-muted-foreground">
+                              By {log.profiles.full_name}
+                            </span>
                           )}
                         </div>
                         <p className="text-sm whitespace-pre-wrap">{log.tasks}</p>
