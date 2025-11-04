@@ -1,5 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { corsHeaders } from '../_shared/cors.ts'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
+
+// Validation schema for create user request
+const createUserSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(6).max(100),
+  full_name: z.string().trim().min(1).max(100),
+  phone: z.string().trim().max(20).optional(),
+  date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  profile_pic_url: z.string().url().max(500).optional(),
+  role: z.enum(['admin', 'hr', 'employee'])
+})
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -44,7 +56,21 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { email, password, full_name, phone, date_of_birth, profile_pic_url, role } = await req.json()
+    // Validate request body
+    const body = await req.json()
+    const validationResult = createUserSchema.safeParse(body)
+    
+    if (!validationResult.success) {
+      return new Response(JSON.stringify({ 
+        error: 'Validation failed', 
+        details: validationResult.error.errors 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const { email, password, full_name, phone, date_of_birth, profile_pic_url, role } = validationResult.data
 
     // Create auth user with all profile data in user_metadata
     // The trigger will automatically create the profile from this metadata

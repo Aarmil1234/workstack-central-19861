@@ -9,6 +9,18 @@ import { toast } from "sonner";
 import { Briefcase } from "lucide-react";
 import logo from "../components/assets/workstack-logo.png"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { z } from "zod";
+
+// Validation schema for signup data
+const signupSchema = z.object({
+  fullName: z.string().trim().min(1, "Full name is required").max(100, "Full name too long"),
+  phone: z.string().trim().max(20, "Phone number too long").optional().or(z.literal("")),
+  profilePic: z.string().url("Must be a valid URL").max(500, "URL too long").optional().or(z.literal("")),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format").optional().or(z.literal("")),
+  email: z.string().email("Invalid email address").max(255, "Email too long"),
+  password: z.string().min(6, "Password must be at least 6 characters").max(100, "Password too long"),
+  role: z.string().min(1, "Role is required")
+});
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -66,10 +78,27 @@ export default function Auth() {
         toast.success("Logged in successfully!");
         navigate("/dashboard");
       } else {
-        // 🆕 SIGNUP
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        // 🆕 SIGNUP - Validate input data first
+        const validationResult = signupSchema.safeParse({
+          fullName,
+          phone,
+          profilePic,
+          dateOfBirth,
           email,
           password,
+          role
+        });
+
+        if (!validationResult.success) {
+          const firstError = validationResult.error.errors[0];
+          throw new Error(firstError.message);
+        }
+
+        const validated = validationResult.data;
+
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: validated.email,
+          password: validated.password,
         });
         if (signUpError) throw signUpError;
 
@@ -79,11 +108,11 @@ export default function Auth() {
           const { error: profileError } = await supabase.from("profiles").insert([
             {
               id: userId,
-              email,
-              full_name: fullName,
-              phone,
-              profile_pic_url: profilePic,
-              date_of_birth: dateOfBirth,
+              email: validated.email,
+              full_name: validated.fullName,
+              phone: validated.phone || null,
+              profile_pic_url: validated.profilePic || null,
+              date_of_birth: validated.dateOfBirth || null,
               created_at: new Date().toISOString(),
             },
           ]);
