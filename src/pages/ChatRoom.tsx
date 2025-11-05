@@ -56,6 +56,28 @@ export default function ChatRoom() {
   useEffect(() => {
     if (selectedRoom) {
       fetchWorkLogs(selectedRoom);
+
+      // Subscribe to realtime updates for work logs
+      const channel = supabase
+        .channel('work-logs-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'work_logs',
+            filter: `room_id=eq.${selectedRoom}`
+          },
+          () => {
+            // Refetch work logs when any change occurs
+            fetchWorkLogs(selectedRoom);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [selectedRoom]);
 
