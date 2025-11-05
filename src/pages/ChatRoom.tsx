@@ -1,13 +1,19 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Plus, Users } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Users } from "lucide-react";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +21,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 
 interface Room {
   id: string;
@@ -50,12 +54,6 @@ export default function ChatRoom() {
     fetchRooms();
   }, [user]);
 
-  useEffect(() => {
-    if (selectedRoom) {
-      fetchWorkLogs(selectedRoom);
-    }
-  }, [selectedRoom]);
-
   const fetchRooms = async () => {
     try {
       const { data: memberData } = await supabase
@@ -70,12 +68,7 @@ export default function ChatRoom() {
           .select("*")
           .in("id", roomIds);
 
-        if (roomsData) {
-          setRooms(roomsData);
-          if (roomsData.length > 0 && !selectedRoom) {
-            setSelectedRoom(roomsData[0].id);
-          }
-        }
+        if (roomsData) setRooms(roomsData);
       }
     } catch (error: any) {
       toast.error("Failed to fetch rooms");
@@ -89,7 +82,6 @@ export default function ChatRoom() {
         .select("*")
         .eq("room_id", roomId)
         .order("log_date", { ascending: false });
-
       setWorkLogs(data || []);
     } catch (error: any) {
       toast.error("Failed to fetch work logs");
@@ -97,58 +89,47 @@ export default function ChatRoom() {
   };
 
   const handleCreateRoom = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  const formData = new FormData(e.currentTarget);
-  const roomName = formData.get("roomName") as string;
-  const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const roomName = formData.get("roomName") as string;
+    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  try {
-    // 🔒 Always ensure current user session is active before any insert
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-    if (sessionError || !session) {
-      toast.error("Session expired. Please log in again.");
-      console.error("No active Supabase session found:", sessionError);
-      return;
+      if (sessionError || !session) {
+        toast.error("Session expired. Please log in again.");
+        return;
+      }
+
+      const userId = session.user.id;
+      const { data: roomData, error: roomError } = await supabase
+        .from("chat_rooms")
+        .insert({
+          name: roomName,
+          room_code: roomCode,
+          created_by: userId,
+        })
+        .select()
+        .single();
+
+      if (roomError) throw roomError;
+
+      await supabase.from("room_members").insert({
+        room_id: roomData.id,
+        user_id: userId,
+      });
+
+      toast.success(`Room created with code: ${roomCode}`);
+      setCreateDialogOpen(false);
+      fetchRooms();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create room");
     }
-
-    const userId = session.user.id;
-    console.log("Creating room as user:", userId);
-
-    // 🧱 Insert room with matching created_by (required by RLS)
-    const { data: roomData, error: roomError } = await supabase
-      .from("chat_rooms")
-      .insert({
-        name: roomName,
-        room_code: roomCode,
-        created_by: userId, // must match auth.uid()
-      })
-      .select()
-      .single();
-
-    if (roomError) throw roomError;
-
-    // ✅ Auto-join creator
-    const { error: memberError } = await supabase.from("room_members").insert({
-      room_id: roomData.id,
-      user_id: userId,
-    });
-
-    if (memberError) throw memberError;
-
-    toast.success(`Room created with code: ${roomCode}`);
-    setCreateDialogOpen(false);
-    fetchRooms();
-  } catch (error: any) {
-    console.error("Room creation failed:", error);
-    toast.error(error.message || "Failed to create room");
-  }
-};
-
-
+  };
 
   const handleJoinRoom = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -167,20 +148,15 @@ export default function ChatRoom() {
         return;
       }
 
-      const { error } = await supabase.from("room_members").insert({
+      await supabase.from("room_members").insert({
         room_id: roomData.id,
         user_id: user?.id,
       });
 
-      if (error) {
-        console.log(error);
-        throw error;
-      }
-
       toast.success("Joined room successfully");
       setJoinDialogOpen(false);
       fetchRooms();
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to join room");
     }
   };
@@ -190,20 +166,18 @@ export default function ChatRoom() {
     const formData = new FormData(e.currentTarget);
 
     try {
-      const { error } = await supabase.from("work_logs").insert({
+      await supabase.from("work_logs").insert({
         user_id: user?.id,
         room_id: selectedRoom,
         log_date: formData.get("logDate") as string,
-        log_time: formData.get("logTime") as string || null,
+        log_time: (formData.get("logTime") as string) || null,
         tasks: formData.get("tasks") as string,
       });
-
-      if (error) throw error;
 
       toast.success("Work log added");
       setLogDialogOpen(false);
       if (selectedRoom) fetchWorkLogs(selectedRoom);
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to add work log");
     }
   };
@@ -212,8 +186,10 @@ export default function ChatRoom() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Chat Room</h1>
-          <p className="text-muted-foreground">Manage work logs and collaborate</p>
+          <h1 className="text-3xl font-bold">Chat Rooms</h1>
+          <p className="text-muted-foreground">
+            View your rooms and manage work logs
+          </p>
         </div>
 
         <div className="flex gap-2">
@@ -232,7 +208,12 @@ export default function ChatRoom() {
                 <form onSubmit={handleCreateRoom} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="roomName">Room Name</Label>
-                    <Input id="roomName" name="roomName" placeholder="Enter room name" required />
+                    <Input
+                      id="roomName"
+                      name="roomName"
+                      placeholder="Enter room name"
+                      required
+                    />
                   </div>
                   <Button type="submit" className="w-full">
                     Create Room
@@ -273,15 +254,19 @@ export default function ChatRoom() {
         </div>
       </div>
 
+      {/* Layout */}
       {rooms.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">No rooms yet. Create or join one to get started.</p>
+            <p className="text-muted-foreground">
+              No rooms yet. Create or join one to get started.
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+          {/* LEFT SIDE - ROOMS */}
           <Card>
             <CardHeader>
               <CardTitle>Your Rooms</CardTitle>
@@ -304,74 +289,158 @@ export default function ChatRoom() {
             </CardContent>
           </Card>
 
-          {selectedRoom && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Work Logs</CardTitle>
-                  <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Log
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Work Log</DialogTitle>
-                      </DialogHeader>
-                      <form onSubmit={handleAddWorkLog} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="logDate">Date</Label>
-                          <Input id="logDate" name="logDate" type="date" required />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="logTime">Time (optional)</Label>
-                          <Input id="logTime" name="logTime" type="time" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="tasks">Tasks</Label>
-                          <Textarea
-                            id="tasks"
-                            name="tasks"
-                            placeholder="Describe your work for the day"
-                            rows={4}
-                            required
-                          />
-                        </div>
-                        <Button type="submit" className="w-full">
-                          Submit Log
-                        </Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {workLogs.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No work logs yet</p>
-                ) : (
-                  <div className="space-y-4">
-                    {workLogs.map((log) => (
-                      <div key={log.id} className="border-l-2 border-primary pl-4 py-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline">
-                            {new Date(log.log_date).toLocaleDateString()}
-                          </Badge>
-                          {log.log_time && (
-                            <span className="text-xs text-muted-foreground">{log.log_time}</span>
-                          )}
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap">{log.tasks}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {/* RIGHT SIDE - DETAILS */}
+          {!selectedRoom ? (
+            <Card className="flex items-center justify-center">
+              <CardContent className="text-center py-12">
+                <p className="text-muted-foreground text-lg">
+                  👈 Select a room to view members and work logs
+                </p>
               </CardContent>
             </Card>
+          ) : (
+            <RoomDetails
+              roomId={selectedRoom}
+              userId={user?.id}
+              fetchWorkLogs={fetchWorkLogs}
+              workLogs={workLogs}
+              logDialogOpen={logDialogOpen}
+              setLogDialogOpen={setLogDialogOpen}
+              handleAddWorkLog={handleAddWorkLog}
+            />
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/* ============ ROOM DETAILS COMPONENT ============ */
+function RoomDetails({
+  roomId,
+  fetchWorkLogs,
+  workLogs,
+  logDialogOpen,
+  setLogDialogOpen,
+  handleAddWorkLog,
+}: any) {
+  const [members, setMembers] = useState<any[]>([]);
+  const [roomInfo, setRoomInfo] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchRoomDetails = async () => {
+      const { data: roomData } = await supabase
+        .from("chat_rooms")
+        .select("*")
+        .eq("id", roomId)
+        .single();
+
+      const { data: memberData } = await supabase
+        .from("room_members")
+        .select("user_id, profiles(full_name)")
+        .eq("room_id", roomId);
+
+      setRoomInfo(roomData);
+      setMembers(memberData || []);
+      fetchWorkLogs(roomId);
+    };
+
+    fetchRoomDetails();
+  }, [roomId]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{roomInfo?.name}</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Room Code: <b>{roomInfo?.room_code}</b>
+        </p>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        {/* Members */}
+        <div>
+          <h3 className="font-semibold mb-2">Members</h3>
+          {members.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No members yet</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {members.map((m, i) => (
+                <Badge key={i} variant="secondary">
+                  {m.profiles?.full_name || m.user_id}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Work Logs */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">Work Logs</h3>
+            <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Log
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Work Log</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAddWorkLog} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="logDate">Date</Label>
+                    <Input id="logDate" name="logDate" type="date" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="logTime">Time (optional)</Label>
+                    <Input id="logTime" name="logTime" type="time" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tasks">Tasks</Label>
+                    <Textarea
+                      id="tasks"
+                      name="tasks"
+                      placeholder="Describe your work"
+                      rows={4}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Submit Log
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {workLogs.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No work logs yet
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {workLogs.map((log: any) => (
+                <div key={log.id} className="border-l-2 border-primary pl-4 py-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline">
+                      {new Date(log.log_date).toLocaleDateString()}
+                    </Badge>
+                    {log.log_time && (
+                      <span className="text-xs text-muted-foreground">
+                        {log.log_time}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{log.tasks}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
