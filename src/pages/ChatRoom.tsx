@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Users } from "lucide-react";
@@ -316,131 +316,208 @@ export default function ChatRoom() {
 }
 
 /* ============ ROOM DETAILS COMPONENT ============ */
-function RoomDetails({
-  roomId,
-  fetchWorkLogs,
-  workLogs,
-  logDialogOpen,
-  setLogDialogOpen,
-  handleAddWorkLog,
-}: any) {
+function RoomDetails({ roomId, userId }: any) {
   const [members, setMembers] = useState<any[]>([]);
   const [roomInfo, setRoomInfo] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [logDate, setLogDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const fetchRoomDetails = async () => {
-      const { data: roomData } = await supabase
-        .from("chat_rooms")
-        .select("*")
-        .eq("id", roomId)
-        .single();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-      const { data: memberData } = await supabase
-        .from("room_members")
-        .select("user_id, profiles(full_name)")
-        .eq("room_id", roomId);
+  // ✅ Fetch all room data + logs
+  const fetchMessages = async () => {
+    const { data: roomData } = await supabase
+      .from("chat_rooms")
+      .select("*")
+      .eq("id", roomId)
+      .single();
 
-      setRoomInfo(roomData);
-      setMembers(memberData || []);
-      fetchWorkLogs(roomId);
+    const { data: memberData } = await supabase
+      .from("room_members")
+      .select("user_id, profiles(full_name)")
+      .eq("room_id", roomId);
+
+    const { data: logData, error } = await supabase
+      .from("work_logs")
+      .select("*, profiles(full_name)")
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Fetch error:", error);
+      toast.error("Error fetching messages");
+      return;
+    }
+
+    setRoomInfo(roomData || null);
+    setMembers(memberData || []);
+    setMessages(logData || []);
+  };
+
+  // ✅ Initial + realtime fetch
+  useEffect(() => {
+    fetchMessages();
+
+    const channel = supabase
+      .channel(`room_${roomId}_realtime`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "work_logs",
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          fetchMessages(); // Always reload to stay in sync
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    fetchRoomDetails();
   }, [roomId]);
 
+  // ✅ Send new work log
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newMessage.trim()) {
+      toast.error("Please enter your work details.");
+      return;
+    }
+
+    if (!logDate || !startTime || !endTime) {
+      toast.error("Please select date, start and end time.");
+      return;
+    }
+
+    const { error } = await supabase.from("work_logs").insert({
+      user_id: userId,
+      room_id: roomId,
+      log_date: logDate,
+      start_time: startTime,
+      end_time: endTime,
+      tasks: newMessage.trim(),
+    });
+
+    if (error) {
+      console.error("Insert error:", error);
+      toast.error(`Failed to send: ${error.message}`);
+    } else {
+      setNewMessage("");
+      setLogDate("");
+      setStartTime("");
+      setEndTime("");
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="flex flex-col h-[80vh]">
+      <CardHeader className="border-b">
         <CardTitle>{roomInfo?.name}</CardTitle>
         <p className="text-sm text-muted-foreground">
           Room Code: <b>{roomInfo?.room_code}</b>
         </p>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        {/* Members */}
-        <div>
-          <h3 className="font-semibold mb-2">Members</h3>
-          {members.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No members yet</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {members.map((m, i) => (
-                <Badge key={i} variant="secondary">
-                  {m.profiles?.full_name || m.user_id}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Work Logs */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Work Logs</h3>
-            <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Log
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Work Log</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddWorkLog} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="logDate">Date</Label>
-                    <Input id="logDate" name="logDate" type="date" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="logTime">Time (optional)</Label>
-                    <Input id="logTime" name="logTime" type="time" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tasks">Tasks</Label>
-                    <Textarea
-                      id="tasks"
-                      name="tasks"
-                      placeholder="Describe your work"
-                      rows={4}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Submit Log
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {workLogs.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No work logs yet
+      <CardContent className="flex-1 flex flex-col overflow-hidden">
+        {/* Chat area */}
+        <div className="flex-1 overflow-y-auto bg-muted/20 p-4 rounded-lg space-y-4">
+          {messages.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground mt-10">
+              No work logs yet. Start adding your work!
             </p>
           ) : (
-            <div className="space-y-4">
-              {workLogs.map((log: any) => (
-                <div key={log.id} className="border-l-2 border-primary pl-4 py-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline">
-                      {new Date(log.log_date).toLocaleDateString()}
-                    </Badge>
-                    {log.log_time && (
-                      <span className="text-xs text-muted-foreground">
-                        {log.log_time}
-                      </span>
-                    )}
+            messages.map((msg: any) => {
+              const isMine = msg.user_id === userId;
+              const senderName = isMine
+                ? "You"
+                : msg.profiles?.full_name ||
+                  members.find((m) => m.user_id === msg.user_id)?.profiles
+                    ?.full_name ||
+                  "Unknown";
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${
+                    isMine ? "items-end" : "items-start"
+                  }`}
+                >
+                  <span className="text-xs text-muted-foreground mb-1">
+                    {senderName}
+                  </span>
+
+                  <div
+                    className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm leading-snug ${
+                      isMine
+                        ? "bg-primary text-primary-foreground rounded-br-none"
+                        : "bg-accent text-accent-foreground rounded-bl-none"
+                    }`}
+                  >
+                    <div className="text-xs opacity-80 mb-1">
+                      📅 {msg.log_date || "--"} <br />
+                      🕒 {msg.start_time || "--:--"} - {msg.end_time || "--:--"}
+                    </div>
+                    <div className="whitespace-pre-wrap">{msg.tasks}</div>
                   </div>
-                  <p className="text-sm whitespace-pre-wrap">{log.tasks}</p>
                 </div>
-              ))}
-            </div>
+              );
+            })
           )}
+          <div ref={messagesEndRef} />
         </div>
+
+        {/* Form */}
+        <form
+          onSubmit={sendMessage}
+          className="mt-4 flex flex-col gap-3 border-t pt-3"
+        >
+          <div className="flex gap-2">
+            <Input
+              type="date"
+              value={logDate}
+              onChange={(e) => setLogDate(e.target.value)}
+              className="w-1/3"
+              required
+            />
+            <Input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-1/3"
+              required
+            />
+            <Input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-1/3"
+              required
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Describe your work..."
+              className="flex-1"
+              required
+            />
+            <Button type="submit">Add</Button>
+          </div>
+        </form>
       </CardContent>
     </Card>
   );
 }
+
