@@ -255,28 +255,34 @@ export type Database = {
       work_logs: {
         Row: {
           created_at: string
+          end_time: string | null
           id: string
           log_date: string
           log_time: string | null
           room_id: string
+          start_time: string | null
           tasks: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          end_time?: string | null
           id?: string
           log_date: string
           log_time?: string | null
           room_id: string
+          start_time?: string | null
           tasks: string
           user_id: string
         }
         Update: {
           created_at?: string
+          end_time?: string | null
           id?: string
           log_date?: string
           log_time?: string | null
           room_id?: string
+          start_time?: string | null
           tasks?: string
           user_id?: string
         }
