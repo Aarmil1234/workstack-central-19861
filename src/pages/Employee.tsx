@@ -283,110 +283,158 @@ function EmployeeForm({
   isNewEmployee: boolean;
 }) {
   return (
-    <div className="space-y-4 mt-4">
-      <div>
-        <Label>Full Name</Label>
-        <Input
-          value={formData.full_name}
-          onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label>Email</Label>
-        <Input
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label>Phone</Label>
-        <Input
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label>Date of Birth</Label>
-        <Input
-          type="date"
-          value={formData.date_of_birth}
-          onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-        />
-      </div>
-      <div>
-  <Label>Profile Picture</Label>
-  <Input
-    type="file"
-    accept="image/*"
-    onChange={async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+    <div className="space-y-6 mt-4">
+      {/* SECTION 1: Personal Details */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-5">
+        <h3 className="font-semibold text-gray-800 text-lg mb-4">
+          Personal Details
+        </h3>
 
-      const fileName = `${Date.now()}-${file.name}`;
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Full Name</Label>
+            <Input
+              value={formData.full_name}
+              onChange={(e) =>
+                setFormData({ ...formData, full_name: e.target.value })
+              }
+              placeholder="Enter full name"
+            />
+          </div>
+          <div>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              placeholder="Enter email address"
+            />
+          </div>
 
-      const { data, error } = await supabase.storage
-        .from("profile_pictures")
-        .upload(fileName, file);
-
-      if (error) {
-        console.error("Error uploading:", error);
-        toast.error("Upload failed!");
-      } else {
-        const { data: publicUrlData } = supabase.storage
-          .from("profile_pictures")
-          .getPublicUrl(fileName);
-
-        setFormData({ ...formData, profile_pic_url: publicUrlData.publicUrl });
-        toast.success("Profile picture uploaded!");
-      }
-    }}
-  />
-  {formData.profile_pic_url && (
-    <img
-      src={formData.profile_pic_url}
-      alt="Profile"
-      className="mt-3 w-20 h-20 rounded-full object-cover border"
-    />
-  )}
-</div>
-
-      
-      {isNewEmployee && (
-        <div>
-          <Label>Password</Label>
-          <Input
-            type="password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
-          />
+          <div>
+            <Label>Phone</Label>
+            <Input
+              value={formData.phone}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+              placeholder="Enter phone number"
+            />
+          </div>
+          <div>
+            <Label>Date of Birth</Label>
+            <Input
+              type="date"
+              value={formData.date_of_birth}
+              onChange={(e) =>
+                setFormData({ ...formData, date_of_birth: e.target.value })
+              }
+            />
+          </div>
         </div>
-      )}
 
-      <div>
-        <Label>Role</Label>
-        <Select
-          value={formData.role}
-          onValueChange={(value) => setFormData({ ...formData, role: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select role" />
-          </SelectTrigger>
-          <SelectContent>
-            {roles.map((r) => (
-              <SelectItem key={r} value={r}>
-                {r.charAt(0).toUpperCase() + r.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Profile Picture Upload */}
+        <div className="mt-4">
+          <Label>Profile Picture</Label>
+          <div className="flex items-center gap-4 mt-2">
+            <Input
+              type="file"
+              accept="image/*"
+              className="flex-1"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                const fileName = `${Date.now()}-${file.name}`;
+                const { data, error } = await supabase.storage
+                  .from("profile_pictures")
+                  .upload(fileName, file);
+
+                if (error) {
+                  console.error("Error uploading:", error);
+                  toast.error("Upload failed!");
+                } else {
+                  const { data: publicUrlData } = supabase.storage
+                    .from("profile_pictures")
+                    .getPublicUrl(fileName);
+
+                  setFormData({
+                    ...formData,
+                    profile_pic_url: publicUrlData.publicUrl,
+                  });
+                  toast.success("Profile picture uploaded!");
+                }
+              }}
+            />
+            {formData.profile_pic_url && (
+              <img
+                src={formData.profile_pic_url}
+                alt="Profile"
+                className="w-16 h-16 rounded-full object-cover border"
+              />
+            )}
+          </div>
+        </div>
       </div>
 
-      <Button onClick={onSave} className="w-full mt-2 flex items-center justify-center gap-2">
-        <Edit className="h-4 w-4" />
-        Save Changes
-      </Button>
+      {/* SECTION 2: Account & Role */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-5">
+        <h3 className="font-semibold text-gray-800 text-lg mb-4">
+          Account & Role
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {isNewEmployee && (
+            <div>
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                placeholder="Enter temporary password"
+                required
+              />
+            </div>
+          )}
+
+          <div>
+            <Label>Role</Label>
+            <Select
+              value={formData.role}
+              onValueChange={(value) =>
+                setFormData({ ...formData, role: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {roles.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* SAVE BUTTON */}
+      <div className="pt-2">
+        <Button
+          onClick={onSave}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <Edit className="h-4 w-4" />
+          {isNewEmployee ? "Add Employee" : "Save Changes"}
+        </Button>
+      </div>
     </div>
   );
 }
+
