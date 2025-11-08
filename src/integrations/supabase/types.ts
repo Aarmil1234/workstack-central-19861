@@ -215,6 +215,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_room_members_user"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "room_members_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
@@ -255,32 +262,45 @@ export type Database = {
       work_logs: {
         Row: {
           created_at: string
+          end_time: string | null
           id: string
           log_date: string
           log_time: string | null
           room_id: string
+          start_time: string | null
           tasks: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          end_time?: string | null
           id?: string
           log_date: string
           log_time?: string | null
           room_id: string
+          start_time?: string | null
           tasks: string
           user_id: string
         }
         Update: {
           created_at?: string
+          end_time?: string | null
           id?: string
           log_date?: string
           log_time?: string | null
           room_id?: string
+          start_time?: string | null
           tasks?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_work_logs_user"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_logs_room_id_fkey"
             columns: ["room_id"]

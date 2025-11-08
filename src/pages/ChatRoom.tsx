@@ -37,6 +37,9 @@ interface WorkLog {
   log_time: string | null;
   tasks: string;
   created_at: string;
+  profiles?: {
+    full_name: string | null;
+  };
 }
 
 export default function ChatRoom() {
@@ -54,6 +57,37 @@ export default function ChatRoom() {
     fetchRooms();
   }, [user]);
 
+<<<<<<< HEAD
+=======
+  useEffect(() => {
+    if (selectedRoom) {
+      fetchWorkLogs(selectedRoom);
+
+      // Subscribe to realtime updates for work logs
+      const channel = supabase
+        .channel('work-logs-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'work_logs',
+            filter: `room_id=eq.${selectedRoom}`
+          },
+          () => {
+            // Refetch work logs when any change occurs
+            fetchWorkLogs(selectedRoom);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [selectedRoom]);
+
+>>>>>>> ede16964cf98c52bf7d7a4072cc95ab33bcfdaf9
   const fetchRooms = async () => {
     try {
       const { data: memberData } = await supabase
@@ -79,10 +113,15 @@ export default function ChatRoom() {
     try {
       const { data } = await supabase
         .from("work_logs")
-        .select("*")
+        .select("*, profiles(full_name)")
         .eq("room_id", roomId)
         .order("log_date", { ascending: false });
+<<<<<<< HEAD
       setWorkLogs(data || []);
+=======
+
+      setWorkLogs((data as any) || []);
+>>>>>>> ede16964cf98c52bf7d7a4072cc95ab33bcfdaf9
     } catch (error: any) {
       toast.error("Failed to fetch work logs");
     }
@@ -289,6 +328,7 @@ export default function ChatRoom() {
             </CardContent>
           </Card>
 
+<<<<<<< HEAD
           {/* RIGHT SIDE - DETAILS */}
           {!selectedRoom ? (
             <Card className="flex items-center justify-center">
@@ -296,6 +336,78 @@ export default function ChatRoom() {
                 <p className="text-muted-foreground text-lg">
                   👈 Select a room to view members and work logs
                 </p>
+=======
+          {selectedRoom && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Work Logs</CardTitle>
+                  <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Log
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Work Log</DialogTitle>
+                      </DialogHeader>
+                      <form onSubmit={handleAddWorkLog} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="logDate">Date</Label>
+                          <Input id="logDate" name="logDate" type="date" required />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="logTime">Time (optional)</Label>
+                          <Input id="logTime" name="logTime" type="time" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="tasks">Tasks</Label>
+                          <Textarea
+                            id="tasks"
+                            name="tasks"
+                            placeholder="Describe your work for the day"
+                            rows={4}
+                            required
+                          />
+                        </div>
+                        <Button type="submit" className="w-full">
+                          Submit Log
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {workLogs.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No work logs yet</p>
+                ) : (
+                  <div className="space-y-4">
+                    {workLogs.map((log) => (
+                      <div key={log.id} className="border-l-2 border-primary pl-4 py-2">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {new Date(log.log_date).toLocaleDateString()}
+                            </Badge>
+                            {log.log_time && (
+                              <span className="text-xs text-muted-foreground">{log.log_time}</span>
+                            )}
+                          </div>
+                          {log.profiles?.full_name && (
+                            <span className="text-xs font-medium text-muted-foreground">
+                              By {log.profiles.full_name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{log.tasks}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+>>>>>>> ede16964cf98c52bf7d7a4072cc95ab33bcfdaf9
               </CardContent>
             </Card>
           ) : (
