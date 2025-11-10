@@ -400,26 +400,21 @@ function RoomDetails({ roomId, userId }: any) {
 
 
   useEffect(() => {
-    fetchMessages();
+  fetchMessages();
+  const channel = supabase
+    .channel(`room_${roomId}_realtime`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "work_logs", filter: `room_id=eq.${roomId}` },
+      () => fetchMessages()
+    )
+    .subscribe();
 
-    const channel = supabase
-      .channel(`room_${roomId}_realtime`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "work_logs",
-          filter: `room_id=eq.${roomId}`,
-        },
-        () => fetchMessages()
-      )
-      .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [roomId]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [roomId]);
 
   const sendMessage = async () => {
     const startTimeString = `${startTime.hour.toString().padStart(2, '0')}:${startTime.minute.toString().padStart(2, '0')}`;
