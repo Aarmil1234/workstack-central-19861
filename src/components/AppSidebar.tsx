@@ -27,9 +27,31 @@ const menuItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { signOut } = useAuth();
-  
+  const { signOut, user } = useAuth();
   const isActive = (path: string) => location.pathname === path;
+
+  // 🧠 Log user to verify role (you can remove this after debugging)
+  console.log("Current user in sidebar:", user);
+
+  // ✅ Ensure Employee section only shows for non-employees (like admin)
+  const filteredMenu = menuItems.filter((item) => {
+    if (item.title === "Employee") {
+      // hide for employee role, show for admin
+      return user?.role && user.role.toLowerCase() !== "employee";
+    }
+    return true;
+  });
+
+  // 🕐 Optionally handle loading state
+  if (!user) {
+    return (
+      <Sidebar>
+        <SidebarHeader>
+          <div className="p-4 text-sm text-muted-foreground">Loading...</div>
+        </SidebarHeader>
+      </Sidebar>
+    );
+  }
 
   return (
     <Sidebar>
@@ -50,7 +72,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {filteredMenu.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink to={item.url}>
