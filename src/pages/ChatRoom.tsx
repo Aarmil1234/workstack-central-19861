@@ -376,7 +376,9 @@ function RoomDetails({ roomId, userId }: any) {
       .channel(`room_${roomId}_realtime`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "work_logs", filter: `room_id=eq.${roomId}` }, fetchMessages)
       .subscribe();
-    return () => supabase.removeChannel(channel);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [roomId]);
 
   const sendMessage = async () => {
