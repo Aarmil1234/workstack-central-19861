@@ -974,3 +974,4 @@ function RoomDetails({ roomId, userId }: any) {
     </div>
   );
 }
+
