@@ -201,7 +201,7 @@ export default function ChatRoom() {
       {/* Top Navigation Bar */}
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <Hash className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -214,7 +214,7 @@ export default function ChatRoom() {
           {canCreateRoom && (
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-green-500 hover:bg-green-600">
+                <Button className="bg-primary hover:bg-green-600">
                   <Plus className="mr-2 h-4 w-4" /> Create Room
                 </Button>
               </DialogTrigger>
@@ -238,7 +238,7 @@ export default function ChatRoom() {
                       }}
                     />
                   </div>
-                  <Button onClick={handleCreateRoom} className="w-full bg-green-500 hover:bg-green-600">
+                  <Button onClick={handleCreateRoom} className="w-full bg-primary hover:bg-green-600">
                     Create Room
                   </Button>
                 </div>
@@ -273,7 +273,7 @@ export default function ChatRoom() {
                     }}
                   />
                 </div>
-                <Button onClick={handleJoinRoom} className="w-full bg-green-500 hover:bg-green-600">
+                <Button onClick={handleJoinRoom} className="w-full bg-primary hover:bg-green-600">
                   Join Room
                 </Button>
               </div>
@@ -314,7 +314,7 @@ export default function ChatRoom() {
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold ${
-                    selectedRoom === room.id ? "bg-green-500" : "bg-gray-400"
+                    selectedRoom === room.id ? "bg-primary" : "bg-gray-400"
                   }`}>
                     {room.name.charAt(0).toUpperCase()}
                   </div>
@@ -742,7 +742,7 @@ function RoomDetails({ roomId, userId }: any) {
                 onClick={() => setTime({ ...currentTime, minute: min })}
                 className={`px-2 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   currentTime.minute === min
-                    ? 'bg-green-500 text-white shadow-md scale-105'
+                    ? 'bg-primary text-white shadow-md scale-105'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
@@ -754,7 +754,7 @@ function RoomDetails({ roomId, userId }: any) {
 
         <Button
           onClick={() => setShowTimePicker(null)}
-          className="w-full mt-4 bg-green-500 hover:bg-green-600"
+          className="w-full mt-4 bg-primary hover:bg-green-600"
         >
           Confirm
         </Button>
@@ -801,7 +801,7 @@ function RoomDetails({ roomId, userId }: any) {
       {/* Room Header */}
       <div className="px-6 py-4 border-b bg-white flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center text-white font-bold">
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold">
             {roomInfo?.name?.charAt(0).toUpperCase()}
           </div>
           <div>
@@ -855,7 +855,7 @@ function RoomDetails({ roomId, userId }: any) {
                     <div
                       className={`relative px-4 py-3 rounded-2xl shadow-lg border ${
                         isMine
-                          ? "bg-green-500 text-white rounded-br-md"
+                          ? "bg-primary text-white rounded-br-md"
                           : "bg-white text-gray-800 rounded-bl-md"
                       }`}
                     >
@@ -963,7 +963,7 @@ function RoomDetails({ roomId, userId }: any) {
             />
             <Button 
               onClick={sendMessage}
-              className="bg-green-500 hover:bg-green-600 rounded-full h-10 w-10 p-0"
+              className="bg-primary hover:bg-green-600 rounded-full h-10 w-10 p-0"
               size="icon"
             >
               <Send className="h-5 w-5" />
