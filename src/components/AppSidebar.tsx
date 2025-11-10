@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, MessageSquare, User, LogOut, Calendar } from "lucide-react";
+import { LayoutDashboard, FileText, MessageSquare, User, LogOut, Calendar, Briefcase } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Briefcase } from "lucide-react";
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -27,23 +26,23 @@ const menuItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { signOut, user } = useAuth();
+
+  // 👇 Depending on how your AuthContext is structured
+  // It could return user or role directly.
+  const { signOut, user, role } = useAuth();
+
   const isActive = (path: string) => location.pathname === path;
 
-  // 🧠 Log user to verify role (you can remove this after debugging)
-  console.log("Current user in sidebar:", user);
+  // 🧠 Determine the actual role safely
+  const userRole = role || user?.role || user?.user_metadata?.role || "employee"; // default fallback
 
-  // ✅ Ensure Employee section only shows for non-employees (like admin)
-  const filteredMenu = menuItems.filter((item) => {
-    if (item.title === "Employee") {
-      // hide for employee role, show for admin
-      return user?.role && user.role.toLowerCase() !== "employee";
-    }
-    return true;
-  });
+  // ✅ Hide "Employee" tab if logged in as employee
+  const filteredMenu = menuItems.filter(
+    (item) => !(item.title === "Employee" && userRole.toLowerCase() === "employee")
+  );
 
-  // 🕐 Optionally handle loading state
-  if (!user) {
+  // 🕐 Optional loading state if user not yet loaded
+  if (!user && !role) {
     return (
       <Sidebar>
         <SidebarHeader>
