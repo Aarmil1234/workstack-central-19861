@@ -73,11 +73,14 @@ export default function LeaveRequests() {
     const formData = new FormData(e.currentTarget);
 
     try {
+      const startDate = formData.get("startDate") as string;
+      const endDate = formData.get("endDate") as string;
+      
       const { error } = await supabase.from("leave_requests").insert({
         user_id: user?.id,
         leave_type: formData.get("leaveType") as string,
-        start_date: formData.get("startDate") as string,
-        end_date: formData.get("endDate") as string,
+        start_date: startDate,
+        end_date: endDate || startDate, // Use start_date if end_date is not provided
         reason: formData.get("reason") as string,
         extra_info: extraInfo || null,
         status: "pending",
