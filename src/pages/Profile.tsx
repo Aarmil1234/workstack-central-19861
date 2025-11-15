@@ -76,6 +76,45 @@ export default function Profile() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !user) return;
+
+  const fileExt = file.name.split(".").pop();
+  const fileName = `${user.id}.${fileExt}`;
+  const filePath = `avatars/${fileName}`;
+
+  // Upload to Supabase Storage
+  const { error: uploadError } = await supabase.storage
+    .from("profile_pictures")
+    .upload(filePath, file, { upsert: true });
+
+  if (uploadError) {
+    toast.error("Failed to upload image");
+    return;
+  }
+
+  // Get public URL
+  const { data: publicURL } = supabase.storage
+    .from("profile_pictures")
+    .getPublicUrl(filePath);
+
+  // Update user profile
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ profile_pic_url: publicURL.publicUrl })
+    .eq("id", user.id);
+
+  if (updateError) {
+    toast.error("Failed to update profile picture");
+    return;
+  }
+
+  toast.success("Profile picture updated");
+  setProfile({ ...profile, profile_pic_url: publicURL.publicUrl });
+};
+
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -102,16 +141,24 @@ export default function Profile() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={profile.email}
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-            </div>
+  <Label htmlFor="profilePic">Profile Picture</Label>
+  <Input
+    id="profilePic"
+    type="file"
+    accept="image/*"
+    onChange={(e) => handleImageUpload(e)}
+  />
+
+  {/* Preview */}
+  {profile.profile_pic_url && (
+    <img
+      src={profile.profile_pic_url}
+      alt="Profile"
+      className="w-24 h-24 rounded-full mt-2 object-cover"
+    />
+  )}
+</div>
+
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
